@@ -51,17 +51,21 @@ class Signup(Resource):
 
 
 class CheckSession(Resource):
-        
+                
     def get(self):
 
-        if session["user_id"]:
+        if "user_id" in session and session["user_id"]:
 
             user = User.query.filter(User.id == session["user_id"]).first()
 
-            return user.to_dict(), 200
+            if user:
+                return user.to_dict(), 200
+            else:
+                return {"error": "user not found"}, 404
         
         else:
             return {}, 401
+
 
 class Login(Resource):
     
@@ -75,11 +79,14 @@ class Login(Resource):
         if user:
             if user.authenticate(password):
                 session["user_id"] = user.id
+                print(session["user_id"])
                 return user.to_dict(), 200
             else:
                 return {"error":"unauthorized"}, 401
         else: 
             return {"error":"username doesn't exist in database"}, 401 
+        
+       
 
 class Logout(Resource):
     
@@ -105,26 +112,23 @@ class RecipeIndex(Resource):
 
             recipes = Recipe.query.filter(Recipe.user == user).all()
 
-            response = []
-
-            for recipe in recipes:
-                recipe_obj = {
-                    "title": recipe.title, 
-                    "instructions": recipe.instructions,
-                    "minutes_to_complete": recipe.minutes_to_complete,
-                }
-                response.append(recipe_obj)
-
-            user_obj = {
+            response = {
+                "user": {
                     "username": user.username,
                     "image_url": user.image_url,
-                    "bio": user.bio 
-                }
-
-            response.append(user_obj)
+                    "bio": user.bio
+                },
+                "recipes": [
+                    {
+                        "title": recipe.title,
+                        "instructions": recipe.instructions,
+                        "minutes_to_complete": recipe.minutes_to_complete,
+                    }
+                    for recipe in recipes
+                ]
+            }
 
             return response, 200
-
         else: 
             return {
                 "error": "user not logged in"
@@ -153,8 +157,8 @@ class RecipeIndex(Resource):
         
         except IntegrityError: 
             return {
-                {"error": "Unprocessable Entity"}
-            }, 422
+                "error": "Unprocessable Entity"
+                }, 422
 
 api.add_resource(Signup, '/signup', endpoint='signup')
 api.add_resource(CheckSession, '/check_session', endpoint='check_session')
